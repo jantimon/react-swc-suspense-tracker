@@ -2,7 +2,7 @@
 
 A development tool that helps you track which React Suspense boundary catches thrown promises, making it easier to debug your React applications that use Suspense for data fetching.
 
-![Simple usage screenshot of useThrowIfSuspenseMissing](https://github.com/user-attachments/assets/a660aaaf-64e2-459d-8ab5-753b526ce63e)
+![Screenshot of React Dev Tools with Suspense Boundary Information](https://github.com/user-attachments/assets/8918f233-710b-44ab-b4a4-2a2b3c425855)
 
 ## The Problem
 
@@ -111,6 +111,10 @@ function MyComponent() {
   return <div>{data}</div>;
 }
 ```
+
+Result:
+
+![Simple usage screenshot of useThrowIfSuspenseMissing](https://github.com/user-attachments/assets/a660aaaf-64e2-459d-8ab5-753b526ce63e)
 
 ### What the SWC Plugin does
 

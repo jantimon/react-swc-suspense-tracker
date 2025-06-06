@@ -67,7 +67,8 @@ Add to your `.swcrc`:
 
 The following example shows how you can debug specific hooks that might suspend.
 
-**Note:** By default `useQueryWithDebug` will only work in development mode. To change that you have to set the `enabled` option to `true` in the SWC plugin configuration.
+**Note:** By default `suspenseInfo` will allways be `null` in production mode.
+To change that you have to set the `enabled` option to `true` in the SWC plugin configuration.
 
 ```tsx
 import { useQuery } from 'react-query';

@@ -2,6 +2,8 @@
 
 A development tool that helps you track which React Suspense boundary catches thrown promises, making it easier to debug your React applications that use Suspense for data fetching.
 
+![Simple usage screenshot of useThrowIfSuspenseMissing](https://github.com/user-attachments/assets/a660aaaf-64e2-459d-8ab5-753b526ce63e)
+
 ## The Problem
 
 React Suspense uses thrown Promises to pause rendering until data is ready, but there's no public API to identify which Suspense boundary catches a suspension.

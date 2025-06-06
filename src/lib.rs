@@ -84,19 +84,20 @@ impl TransformVisitor {
         }
 
         let mut found_suspense = false;
-        
+
         // Collect Suspense contexts and remove them from the import
         import_decl.specifiers.retain(|spec| {
             if let ImportSpecifier::Named(named) = spec {
                 // Check the external/imported name, fall back to local name if not aliased
-                let external_name = named.imported
+                let external_name = named
+                    .imported
                     .as_ref()
                     .map(|imported| match imported {
                         ModuleExportName::Ident(ident) => &ident.sym,
                         ModuleExportName::Str(str_lit) => &str_lit.value,
                     })
                     .unwrap_or(&named.local.sym);
-                
+
                 if external_name == "Suspense" {
                     // Store the context of this Suspense identifier
                     self.react_suspense_contexts.insert(named.local.ctxt);
@@ -148,13 +149,14 @@ impl VisitMut for TransformVisitor {
         // Third pass: add SuspenseTracker import if needed
         if self.has_suspense_elements && !self.suspense_tracker_imported {
             let tracker_import = self.create_suspense_tracker_import();
-            
+
             // Insert after React import if we found one, otherwise at the beginning
-            let insert_index = self.react_import_position
+            let insert_index = self
+                .react_import_position
                 .map(|i| i + 1)
                 .or_else(|| get_first_import_index(module_items))
                 .unwrap_or(0);
-                
+
             module_items.insert(insert_index, tracker_import);
             self.suspense_tracker_imported = true;
         }
@@ -164,7 +166,7 @@ impl VisitMut for TransformVisitor {
         // Only transform if this is a React Suspense element
         if self.is_react_suspense(jsx_element) {
             self.has_suspense_elements = true;
-            
+
             // Change the element name to SuspenseTracker
             jsx_element.opening.name = JSXElementName::Ident(Ident {
                 ctxt: Default::default(),
@@ -185,7 +187,7 @@ impl VisitMut for TransformVisitor {
 
             // Add the id prop
             let id_value = self.generate_suspense_id(jsx_element.span.lo.0);
-            
+
             let id_attr = JSXAttrOrSpread::JSXAttr(JSXAttr {
                 span: DUMMY_SP,
                 name: JSXAttrName::Ident(IdentName {
@@ -330,9 +332,7 @@ function App() {
 
     fn transform_visitor(environment: Environment) -> VisitMutPass<TransformVisitor> {
         visit_mut_pass(TransformVisitor::new(
-            Config {
-                enabled: true,
-            },
+            Config { enabled: true },
             Context {
                 env_name: environment,
                 filename: "my/file.tsx".into(),

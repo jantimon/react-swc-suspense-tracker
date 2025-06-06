@@ -41,13 +41,37 @@ export const useThrowIfSuspenseMissing =
  *
  * @param hook - The hook to wrap.
  * @param onSuspense - Function to call when a Suspense error occurs.
- * @returns A wrapped version of the hook.
+ * @returns A wrapped version of the hook
+ *
+ *
+ * Usage:
+ * ```tsx
+ * import { useQuery } from 'react-query';
+ * import { wrapHook } from 'suspense-tracker';
+ *
+ * const useQueryWithDebug = wrapHook(
+ *   useQuery,
+ *   (suspenseInfo, queryKey) => {
+ *     if (!suspenseInfo) {
+ *      console.warn(`Suspense boundary missing for query: ${queryKey}`);
+ *     } else {
+ *      console.info(`Suspense from query: ${queryKey} triggered Suspense in ${suspenseInfo}`);
+ *     }
+ *   }
+ * );
+ *
+ * function MyComponent() {
+ *   const { data } = useQueryWithDebug('my-query-key', fetchData);
+ *   return <div>{data}</div>;
+ * }
+ * ```
  */
 export const wrapHook = <T extends (...args: any) => any>(
   hook: T,
-  onSuspense: (id: string | null) => void,
-): T => {
-  return ((...args: any[]) => {
+  /** Called if the hook suspends */
+  onSuspense: (...args: [string | null, ...NoInfer<Parameters<T>>]) => void,
+): T =>
+  ((...args: any[]) => {
     const suspenseInfo = useSuspenseOwner();
     try {
       return hook(...args);
@@ -58,9 +82,12 @@ export const wrapHook = <T extends (...args: any) => any>(
           (error instanceof Error &&
             error.message.startsWith("Suspense Exception")))
       ) {
-        onSuspense(suspenseInfo);
+        onSuspense(
+          suspenseInfo,
+          // @ts-expect-error - Spread hook arguments into onSuspense
+          ...args,
+        );
       }
       throw error;
     }
   }) as T;
-};

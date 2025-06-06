@@ -11,7 +11,6 @@ This makes debugging difficult when you have multiple nested Suspense boundaries
 
 This package provides:
 - **SWC Plugin**: Automatically replaces `Suspense` imports to use a trackable version
-- **Enhanced Suspense Component**: Drop-in replacement that creates context for tracking
 - **Development Hooks**: Utilities to detect missing boundaries and debug suspension flow
 
 ## Installation
@@ -31,18 +30,22 @@ module.exports = {
   experimental: {
     swcPlugins: [
       [
-        "react-swc-suspense-tracker/swc",
-        { 
-          // Only in development
-          enabled: process.env.NODE_ENV === 'development'
-        }
+        "react-swc-suspense-tracker/swc"
       ],
     ],
   },
 };
 ```
 
-### Standalone SWC Setup
+***Note:** The plugin is enabled by default in development mode and disabled in production builds. You can override this behavior by setting the `enabled` option.
+
+#### Plugin Options
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `enabled` | `boolean` | `true` on development<br> `false` in production | Enable/disable the plugin transformation |
+
+#### Using with SWC directly
 
 Add to your `.swcrc`:
 
@@ -52,8 +55,7 @@ Add to your `.swcrc`:
     "experimental": {
       "plugins": [
         [
-          "react-swc-suspense-tracker/swc",
-          { "enabled": true }
+          "react-swc-suspense-tracker/swc"
         ]
       ]
     }
@@ -61,7 +63,53 @@ Add to your `.swcrc`:
 }
 ```
 
-### What It Does
+### Debugging Suspense Boundaries
+
+The following example shows how you can debug specific hooks that might suspend.
+
+**Note:** By default `useQueryWithDebug` will only work in development mode. To change that you have to set the `enabled` option to `true` in the SWC plugin configuration.
+
+```tsx
+import { useQuery } from 'react-query';
+import { wrapHook } from 'suspense-tracker';
+
+const useQueryWithDebug = process.env.NODE_ENV === 'production'
+ ? useQuery
+ : wrapHook(
+  useQuery,
+  (suspenseInfo, queryKey) => {
+    if (!suspenseInfo) {
+     console.warn(`Suspense triggered by ${queryKey} but no Suspense boundary found`);
+    } else {
+     console.info(`Suspense triggered by ${queryKey} for boundary: ${suspenseInfo}`);
+    }
+  }
+);
+
+function MyComponent() {
+  const { data } = useQueryWithDebug('my-query-key', fetchData);
+  return <div>{data}</div>;
+}
+```
+
+### Throwing Errors for Missing Suspense Boundaries
+
+If you want to ensure that your component is wrapped in a Suspense boundary, you can use the `useThrowIfSuspenseMissing` hook. 
+This will throw an error in development if the component might suspend but has no Suspense boundary above it.
+
+```javascript
+import { useThrowIfSuspenseMissing } from "react-swc-suspense-tracker";
+
+function MyComponent() {
+  // This will throw an error in development if no Suspense boundary is found
+  useThrowIfSuspenseMissing();
+
+  const data = useSomeDataHook(); // This might suspend
+  return <div>{data}</div>;
+}
+```
+
+### What the SWC Plugin does
 
 The plugin automatically transforms:
 
@@ -79,109 +127,23 @@ import { SuspenseTracker } from "react-swc-suspense-tracker/internal";
 </SuspenseTracker>
 ```
 
-### Using the Debug Hooks
+### Custom logger
 
-Once the plugin is active, you can use the provided hooks anywhere in your component tree:
+For custom logging or logging in production you can use the `useSuspenseOwner` hook to get the ID of the nearest Suspense boundary:
 
 ```javascript
 import { 
   useSuspenseOwner,
-  wrapHook 
 } from "react-swc-suspense-tracker";
-
-function MyDataComponent() {
-  // Get the ID of the nearest Suspense boundary (format: "file.tsx:line")
-  const suspenseBoundaryId = useSuspenseOwner();
-  if (suspenseBoundaryId) {
-    console.log("Suspense Boundary ID:", suspenseBoundaryId);
-  }
-  
-  // Your component logic that might suspend:
-  const data = useSomeDataHook(); 
-  
-  return <div>{data}</div>;
-}
-
-function ComponentWithOptionalCheck() {
-  // Skip the check by passing true
-  useThrowIfSuspenseMissing(true);
-  
-  const data = useSomeDataHook();
-  return <div>{data}</div>;
-}
-
-function MyApp() {
-  return (
-    <Suspense fallback={<Loading />}>
-      <MyDataComponent />
-      <ComponentWithOptionalCheck />
-    </Suspense>
-  );
-}
-```
-
-
-### Throwing Errors for Missing Suspense Boundaries
-If you want to ensure that your component is wrapped in a Suspense boundary, you can use the `useThrowIfSuspenseMissing` hook. 
-This will throw an error in development if the component might suspend but has no Suspense boundary above it.
-
-Only works if the SWC plugin is enabled otherwise it will always throw an error
-
-```javascript
-import { useThrowIfSuspenseMissing } from "react-swc-suspense-tracker";
-
 function MyComponent() {
-  // This will throw an error in development if no Suspense boundary is found
-  useThrowIfSuspenseMissing();
+  const suspenseOwner = useSuspenseOwner();
+  
+  // Log the Suspense boundary ID
+  console.log("Closest Suspense boundary ID:", suspenseOwner);
 
   const data = useSomeDataHook(); // This might suspend
   return <div>{data}</div>;
 }
-```
-
-### Wrapping Hooks for Suspension Debugging
-
-You can wrap any hook to get notified when it suspends:
-
-```javascript
-import { wrapHook } from "react-swc-suspense-tracker";
-
-const wrappedDataHook = wrapHook(
-  useSomeDataHook,
-  (suspenseBoundaryId) => {
-    console.log("Hook suspended! Caught by boundary:", suspenseBoundaryId);
-    // Log to analytics, send to monitoring service, etc.
-  }
-);
-
-function MyComponent() {
-  const data = wrappedDataHook(); // Will call onSuspense if it throws a promise
-  return <div>{data}</div>;
-}
-```
-
-## Configuration Options
-
-| Option | Type | Default | Description |
-|--------|------|---------|-------------|
-| `enabled` | `boolean` | `true` | Enable/disable the plugin transformation |
-
-Example with all options:
-
-```javascript
-// next.config.js
-module.exports = {
-  experimental: {
-    swcPlugins: [
-      [
-        "react-swc-suspense-tracker/swc",
-        { 
-          enabled: process.env.NODE_ENV === 'development',
-        }
-      ],
-    ],
-  },
-};
 ```
 
 ## API Reference
@@ -196,14 +158,14 @@ Returns `null` if no Suspense boundary is found.
 
 #### `useThrowIfSuspenseMissing(skip?: boolean): void`
 
-Throws an error in development if this component might suspend but has no Suspense boundary above it.
+Throws an error in development if this component might suspend but has no Suspense boundary above it - NOOP in production builds
 
 **Parameters:**
 - `skip` (optional): If `true`, skips the check. Defaults to `false`.
 
 **Throws:** Error with message explaining the missing Suspense boundary.
 
-#### `wrapHook<T>(hook: T, onSuspense: (id: string | null) => void): T`
+#### `wrapHook<T>(hook: T, onSuspense: (id: string | null, ...args: Parameters<T>) => void): T`
 
 Wraps a hook to catch Suspense errors and call the provided `onSuspense` function with the current Suspense boundary information.
 

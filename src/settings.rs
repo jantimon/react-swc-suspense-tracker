@@ -37,7 +37,7 @@ pub enum Environment {
 
 impl TryFrom<&str> for Environment {
     type Error = String;
-    
+
     fn try_from(value: &str) -> Result<Self, Self::Error> {
         match value {
             "development" => Ok(Self::Development),

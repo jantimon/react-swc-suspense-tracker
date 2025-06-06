@@ -1,19 +1,18 @@
 {
   "name": "react-swc-suspense-tracker",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "description": "A development tool that tracks which React Suspense boundary catches thrown promises for easier debugging",
-  "type": "module",
-  "main": "./dist/index.js",
+  "main": "./dist/index.mjs",
   "types": "./dist/index.d.ts",
   "exports": {
     ".": {
-      "types": "./dist/index.d.ts",
-      "import": "./dist/index.js"
+      "types": "./dist/index.d.mts",
+      "default": "./dist/index.mjs"
     },
     "./swc": "./react_swc_suspense_tracker.wasm",
     "./context": {
-      "import": "./dist/context.js",
-      "types": "./dist/context.d.ts"
+      "default": "./dist/context.mjs",
+      "types": "./dist/context.d.mts"
     }
   },
   "files": [
@@ -26,7 +25,7 @@
     "test:js": "tsc --noEmit && prettier --check \"src/**/*.{ts,tsx}\"",
     "build": "npm run prettier && npm run build:js && npm run build:swc",
     "build:swc": "cargo build --release --target wasm32-wasip1 && ncp target/wasm32-wasip1/release/react_swc_suspense_tracker.wasm react_swc_suspense_tracker.wasm",
-    "build:js": "tsdown --clean ./src/index.tsx src/context.tsx",
+    "build:js": "tsdown --format esm --clean ./src/index.tsx src/context.tsx",
     "prettier": "prettier --write \"src/**/*.{ts,tsx}\"",
     "prepublishOnly": "npm run test && npm run build"
   },

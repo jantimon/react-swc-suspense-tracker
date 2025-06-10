@@ -9,11 +9,11 @@
       "types": "./dist/index.d.mts",
       "default": "./dist/index.mjs"
     },
-    "./swc": "./react_swc_suspense_tracker.wasm",
     "./context": {
-      "default": "./dist/context.mjs",
-      "types": "./dist/context.d.mts"
-    }
+      "types": "./dist/context.d.mts",
+      "default": "./dist/context.mjs"
+    },
+    "./swc": "./react_swc_suspense_tracker.wasm"
   },
   "files": [
     "dist/",
@@ -22,11 +22,12 @@
   "scripts": {
     "test": "npm run test:js && npm run test:swc",
     "test:swc": "cargo test",
-    "test:js": "tsc --noEmit && prettier --check \"src/**/*.{ts,tsx}\"",
+    "test:js": "npm run test:vitest && tsc --noEmit && prettier --check \"{src,tests}/**/*.{ts,tsx}\"",
+    "test:vitest": "pnpm --filter react-swc-suspense-tracker-tests test",
     "build": "npm run prettier && npm run build:js && npm run build:swc",
     "build:swc": "cargo build --release --target wasm32-wasip1 && ncp target/wasm32-wasip1/release/react_swc_suspense_tracker.wasm react_swc_suspense_tracker.wasm",
-    "build:js": "tsdown --format esm --clean ./src/index.tsx src/context.tsx",
-    "prettier": "prettier --write \"src/**/*.{ts,tsx}\"",
+    "build:js": "tsdown --format esm --external /react/ --clean ./src/index.tsx src/context.tsx",
+    "prettier": "prettier --write \"{src,tests}/**/*.{ts,tsx}\"",
     "prepublishOnly": "npm run test && npm run build"
   },
   "repository": {
@@ -42,14 +43,21 @@
   "author": "Jan Nicklas",
   "license": "MIT",
   "devDependencies": {
+    "@swc/core": "^1.11.31",
     "@types/node": "^22.15.30",
-    "@types/react": "^18.0.0",
+    "@types/react": "^19.1.6",
+    "@types/react-dom": "^19.1.6",
+    "react": "^19.1.0",
     "ncp": "2.0.0",
     "prettier": "^3.5.3",
     "tsdown": "0.12.7",
     "typescript": "^5.8.3"
   },
   "engines": {
-    "node": ">=20.0.0"
-  }
+    "node": ">=20.0.0",
+    "pnpm": ">=10.0.0"
+  },
+  "workspaces": [
+    "tests"
+  ]
 }

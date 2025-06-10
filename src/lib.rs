@@ -125,8 +125,10 @@ impl TransformVisitor {
 
 impl VisitMut for TransformVisitor {
     fn visit_mut_module_items(&mut self, module_items: &mut Vec<ModuleItem>) {
-        // Skip transformation in test and production environments if disabled
-        if !self.config.enabled || self.context.env_name != Environment::Development {
+        // Skip transformation if the plugin is disabled
+        // or if the environment is not Development and the config does not explicitly enable it
+        if !self.config.enabled.unwrap_or(self.context.env_name != Environment::Development)
+        {
             return;
         }
 
@@ -332,7 +334,7 @@ function App() {
 
     fn transform_visitor(environment: Environment) -> VisitMutPass<TransformVisitor> {
         visit_mut_pass(TransformVisitor::new(
-            Config { enabled: true },
+            Config { enabled: Some(true) },
             Context {
                 env_name: environment,
                 filename: "my/file.tsx".into(),

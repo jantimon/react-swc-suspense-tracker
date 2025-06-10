@@ -1,4 +1,4 @@
-import React, { Suspense } from "react";
+import { Suspense } from "react";
 import { SuspenseContext } from "./internal";
 
 interface SuspenseTrackerProps extends React.ComponentProps<typeof Suspense> {

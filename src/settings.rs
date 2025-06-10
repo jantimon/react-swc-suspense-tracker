@@ -7,12 +7,12 @@ use serde::{Deserialize, Serialize};
 pub struct Config {
     /// Whether the plugin is enabled
     #[serde(default = "default_enabled")]
-    pub enabled: bool,
+    pub enabled: Option<bool>,
 }
 
-/// Default value for the enabled field (defaults to true if not specified).
-fn default_enabled() -> bool {
-    true
+/// Default value for the enabled field (defaults to Some(true) if not specified).
+fn default_enabled() -> Option<bool> {
+    None
 }
 
 /// Additional context for the plugin.

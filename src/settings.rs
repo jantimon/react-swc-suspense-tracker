@@ -1,4 +1,14 @@
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap; // Added for HashMap
+
+/// Settings for a custom boundary component.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+#[serde(deny_unknown_fields)]
+pub struct CustomBoundarySetting {
+    pub component: String,
+    pub from: String,
+}
 
 /// Static plugin configuration.
 #[derive(Debug, Serialize, Deserialize)]
@@ -8,6 +18,9 @@ pub struct Config {
     /// Whether the plugin is enabled
     #[serde(default = "default_enabled")]
     pub enabled: Option<bool>,
+    /// Configuration for custom boundaries
+    #[serde(default)] // Add default for Option<HashMap<...>>
+    pub custom_boundaries: Option<HashMap<String, CustomBoundarySetting>>,
 }
 
 /// Default value for the enabled field (defaults to Some(true) if not specified).

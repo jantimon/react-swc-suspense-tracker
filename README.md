@@ -1,5 +1,8 @@
 # react-swc-suspense-tracker
 
+[![npm version](https://img.shields.io/npm/v/react-swc-suspense-tracker.svg)](https://www.npmjs.com/package/react-swc-suspense-tracker)
+[![CI](https://github.com/jantimon/react-swc-suspense-tracker/actions/workflows/test.yml/badge.svg)](https://github.com/jantimon/react-swc-suspense-tracker/actions/workflows/test.yml)
+
 A development tool that helps you track which React Suspense boundary catches thrown promises, making it easier to debug your React applications that use Suspense for data fetching.
 
 ![Screenshot of React Dev Tools with Suspense Boundary Information](https://github.com/user-attachments/assets/8918f233-710b-44ab-b4a4-2a2b3c425855)
@@ -199,4 +202,4 @@ The compiled Wasm module will be available as `react_swc_suspense_tracker.wasm`.
 
 ## License
 
-- [MIT license](LICENSE-MIT)
+[MIT](LICENSE)

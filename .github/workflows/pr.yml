@@ -33,11 +33,11 @@ jobs:
         run: cargo clippy -- -D warnings
       - name: Install dependencies
         run: pnpm install
-      - name: Run cargo test
-        run: cargo test
       - name: Run Build
         run: pnpm build
       - name: Run JavaScript tests
         run: pnpm test:js
       - name: Run cargo check
         run: cargo check
+      - name: Run cargo test
+        run: cargo test

@@ -30,6 +30,8 @@ jobs:
         uses: actions/checkout@v4
       - name: Install stable toolchain
         uses: dtolnay/rust-toolchain@stable
+      - name: Add wasm32-wasip1 target
+        run: rustup target add wasm32-wasip1
       - name: Enable caching
         uses: Swatinem/rust-cache@v2
       - name: Setup Node.js

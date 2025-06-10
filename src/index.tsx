@@ -70,8 +70,8 @@ export const wrapHook = <T extends (...args: any) => any>(
   hook: T,
   /** Called if the hook suspends */
   onSuspense: (...args: [string | null, ...NoInfer<Parameters<T>>]) => void,
-): T =>
-  ((...args: any[]) => {
+): T => {
+  const wrappedHook = function (...args: any[]) {
     const suspenseInfo = useSuspenseOwner();
     try {
       return hook(...args);
@@ -90,4 +90,9 @@ export const wrapHook = <T extends (...args: any) => any>(
       }
       throw error;
     }
-  }) as T;
+  } as T;
+  Object.defineProperty(wrappedHook, "name", {
+    value: hook.name || "wrappedHook",
+  });
+  return wrappedHook;
+};

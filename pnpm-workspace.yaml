@@ -1,0 +1,6 @@
+packages:
+  - .
+  - tests
+
+onlyBuiltDependencies:
+  - esbuild

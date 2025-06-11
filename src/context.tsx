@@ -1,5 +1,5 @@
-import { Suspense } from "react";
-import { SuspenseContext } from "./internal";
+import { Suspense, use, useMemo } from "react";
+import { SuspenseContext, type BoundaryInfo } from "./internal";
 
 interface BoundaryTrackerProps extends React.ComponentProps<typeof Suspense> {
   boundaryId: string;
@@ -15,8 +15,15 @@ export const BoundaryTrackerSWC = ({
   boundary: Boundary,
   children,
   ...boundaryProps
-}: BoundaryTrackerProps) => (
-  <SuspenseContext.Provider value={boundaryId}>
-    <Boundary {...boundaryProps}>{children}</Boundary>
-  </SuspenseContext.Provider>
-);
+}: BoundaryTrackerProps) => {
+  const parentContext = use(SuspenseContext);
+  const boundaries = useMemo<BoundaryInfo[]>(
+    () => [[boundaryId, Boundary], ...parentContext],
+    [parentContext, boundaryId, Boundary],
+  );
+  return (
+    <SuspenseContext.Provider value={boundaries}>
+      <Boundary {...boundaryProps}>{children}</Boundary>
+    </SuspenseContext.Provider>
+  );
+};

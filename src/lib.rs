@@ -139,10 +139,6 @@ impl TransformVisitor {
     /// Checks if a JSX element is a boundary that should be transformed
     fn get_element_boundary_ident(&self, jsx_element: &JSXElement) -> Option<Ident> {
         if let JSXElementName::Ident(ident) = &jsx_element.opening.name {
-            println!(
-                "Ident {:?} and Contexts {:?}",
-                ident, self.valid_boundary_idents
-            );
             // Check if this is a valid boundary identifier
             if self
                 .valid_boundary_idents

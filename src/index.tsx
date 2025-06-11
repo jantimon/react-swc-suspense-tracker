@@ -54,6 +54,7 @@ export const useThrowIfSuspenseMissing =
  *
  * @param hook - The hook to wrap.
  * @param onSuspense - Function to call when a Suspense error occurs.
+ * @param onlySuspense - If true, only Suspense boundaries will be included in the stack - defaults to true
  * @returns A wrapped version of the hook
  *
  *
@@ -83,15 +84,18 @@ export const wrapSuspendableHook = <T extends (...args: any) => any>(
   hook: T,
   /** Called if the hook suspends */
   onSuspense: (...args: [string[], ...NoInfer<Parameters<T>>]) => void,
+  onlySuspense = true,
 ): T => {
   const wrappedHook = function (...args: any[]) {
     const boundaryStack = useBoundaryStack();
     try {
       return hook(...args);
     } catch (error) {
-      const suspenseBoundaries = boundaryStack
-        .filter(([, Component]) => Component === Suspense)
-        .map(([id]) => id);
+      const suspenseBoundaries = (
+        onlySuspense
+          ? boundaryStack.filter(([, Component]) => Component === Suspense)
+          : boundaryStack
+      ).map(([id]) => id);
 
       if (
         error &&

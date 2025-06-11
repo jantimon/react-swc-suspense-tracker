@@ -3,12 +3,13 @@ import { describe, it, expect } from "vitest";
 import { renderToString, renderToPipeableStream } from "react-dom/server";
 import {
   useSuspenseOwner as _useSuspenseOwner,
-  wrapHook as _wrapSuspendableHook,
+  wrapSuspendableHook as _wrapSuspendableHook,
 } from "react-swc-suspense-tracker";
 import type * as Types from "../src/index";
 
 const useSuspenseOwner: typeof Types.useSuspenseOwner = _useSuspenseOwner;
-const wrapHook = _wrapSuspendableHook as typeof Types.wrapSuspendableHook;
+const wrapSuspendableHook =
+  _wrapSuspendableHook as typeof Types.wrapSuspendableHook;
 
 describe("useSuspenseOwner()", () => {
   // Component that uses useSuspenseOwner to get boundary ID
@@ -56,9 +57,12 @@ describe("wrapHook", () => {
       return "loaded";
     }
 
-    const wrappedHook = wrapHook(useSuspendingHook, (boundaries, ..._args) => {
-      capturedBoundaries = boundaries;
-    });
+    const wrappedHook = wrapSuspendableHook(
+      useSuspendingHook,
+      (boundaries, ..._args) => {
+        capturedBoundaries = boundaries;
+      },
+    );
 
     function TestComponentWithWrappedHook() {
       const result = wrappedHook();

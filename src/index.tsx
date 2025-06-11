@@ -1,15 +1,28 @@
-import { useContext } from "react";
-import { SuspenseContext } from "./internal";
+import { Suspense, useContext } from "react";
+import { SuspenseContext, type BoundaryInfo } from "./internal";
 
 /**
- * Returns information about the nearest Suspense boundary above this component
+ * Returns information about all boundary components above this component
+ *
+ * Returns an array of [boundaryId, BoundaryComponent] tuples,
+ * ordered from outermost to innermost boundary.
+ * If not set manually, boundaryId format is file.tsx:line
+ *
+ * Returns empty array if no boundaries are found.
+ */
+export const useBoundaryStack = (): BoundaryInfo[] =>
+  useContext(SuspenseContext);
+
+/**
+ * Returns information about the nearest boundary above this component
  *
  * If not set manually the format is file.tsx:line
  *
- * Returns null if no Suspense boundary is found.
+ * Returns null if no boundary is found.
  */
 export const useSuspenseOwner = (): string | null =>
-  useContext(SuspenseContext);
+  useBoundaryStack().find(([, Component]) => Component === Suspense)?.[0] ||
+  null;
 
 /**
  * Throws if this component might suspend but has no Suspense boundary above it
@@ -37,25 +50,26 @@ export const useThrowIfSuspenseMissing =
 
 /**
  * Wraps a hook to catch Suspense errors and call the provided onSuspense function
- * with the current Suspense boundary information.
+ * with the current boundary information.
  *
  * @param hook - The hook to wrap.
  * @param onSuspense - Function to call when a Suspense error occurs.
+ * @param onlySuspense - If true, only Suspense boundaries will be included in the stack - defaults to true
  * @returns A wrapped version of the hook
  *
  *
  * Usage:
  * ```tsx
  * import { useQuery } from 'react-query';
- * import { wrapHook } from 'suspense-tracker';
+ * import { wrapSuspendableHook } from 'suspense-tracker';
  *
- * const useQueryWithDebug = wrapHook(
+ * const useQueryWithDebug = wrapSuspendableHook(
  *   useQuery,
- *   (suspenseInfo, queryKey) => {
- *     if (!suspenseInfo) {
- *      console.warn(`Suspense boundary missing for query: ${queryKey}`);
+ *   (suspenseBoundaryStack, queryKey) => {
+ *     if (suspenseBoundaryStack.length === 0) {
+ *      console.warn(`No boundary found for query: ${queryKey}`);
  *     } else {
- *      console.info(`Suspense from query: ${queryKey} triggered Suspense in ${suspenseInfo}`);
+ *      console.info(`Suspense from query: ${queryKey} triggered in ${suspenseBoundaryStack[0]}`);
  *     }
  *   }
  * );
@@ -66,16 +80,23 @@ export const useThrowIfSuspenseMissing =
  * }
  * ```
  */
-export const wrapHook = <T extends (...args: any) => any>(
+export const wrapSuspendableHook = <T extends (...args: any) => any>(
   hook: T,
   /** Called if the hook suspends */
-  onSuspense: (...args: [string | null, ...NoInfer<Parameters<T>>]) => void,
+  onSuspense: (...args: [string[], ...NoInfer<Parameters<T>>]) => void,
+  onlySuspense = true,
 ): T => {
   const wrappedHook = function (...args: any[]) {
-    const suspenseInfo = useSuspenseOwner();
+    const boundaryStack = useBoundaryStack();
     try {
       return hook(...args);
     } catch (error) {
+      const suspenseBoundaries = (
+        onlySuspense
+          ? boundaryStack.filter(([, Component]) => Component === Suspense)
+          : boundaryStack
+      ).map(([id]) => id);
+
       if (
         error &&
         ((typeof error === "object" && "then" in error) ||
@@ -83,7 +104,7 @@ export const wrapHook = <T extends (...args: any) => any>(
             error.message.startsWith("Suspense Exception")))
       ) {
         onSuspense(
-          suspenseInfo,
+          suspenseBoundaries,
           // @ts-expect-error - Spread hook arguments into onSuspense
           ...args,
         );

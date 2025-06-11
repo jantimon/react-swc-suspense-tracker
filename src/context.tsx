@@ -1,20 +1,29 @@
-import { Suspense } from "react";
-import { SuspenseContext } from "./internal";
+import { Suspense, use, useMemo } from "react";
+import { SuspenseContext, type BoundaryInfo } from "./internal";
 
-interface SuspenseTrackerProps extends React.ComponentProps<typeof Suspense> {
-  id: string;
+interface BoundaryTrackerProps extends React.ComponentProps<typeof Suspense> {
+  boundaryId: string;
+  boundary: React.ComponentType<any>;
 }
 
 /**
- * Internal component that replaces React.Suspense via SWC plugin transformation.
- * Provides tracking context while maintaining all original Suspense functionality.
+ * Internal component that replaces boundary components via SWC plugin transformation.
+ * Provides tracking context while maintaining all original boundary functionality.
  */
-export const SuspenseTrackerSWC = ({
-  id,
+export const BoundaryTrackerSWC = ({
+  boundaryId,
+  boundary: Boundary,
   children,
-  ...suspenseProps
-}: SuspenseTrackerProps) => (
-  <SuspenseContext.Provider value={id}>
-    <Suspense {...suspenseProps}>{children}</Suspense>
-  </SuspenseContext.Provider>
-);
+  ...boundaryProps
+}: BoundaryTrackerProps) => {
+  const parentContext = use(SuspenseContext);
+  const boundaries = useMemo<BoundaryInfo[]>(
+    () => [[boundaryId, Boundary], ...parentContext],
+    [parentContext, boundaryId, Boundary],
+  );
+  return (
+    <SuspenseContext.Provider value={boundaries}>
+      <Boundary {...boundaryProps}>{children}</Boundary>
+    </SuspenseContext.Provider>
+  );
+};

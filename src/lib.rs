@@ -1,6 +1,6 @@
 #![allow(clippy::not_unsafe_ptr_arg_deref)]
 
-use std::collections::{HashMap, HashSet};
+use std::collections::HashSet;
 use swc_core::common::{BytePos, SourceMapper};
 use swc_core::plugin::proxies::PluginSourceMapProxy;
 use swc_core::{
@@ -27,8 +27,8 @@ const BOUNDARY_NAME_PROPERTY_NAME: &str = "boundary";
 struct TransformVisitor {
     config: Config,
     context: Context,
-    /// Maps boundary name -> (boundary_config, set of syntax contexts for that boundary)
-    boundary_contexts: HashMap<String, Boundary>,
+    /// Set of boundary configurations
+    boundary_contexts: HashSet<Boundary>,
     /// Valid Boundary Idents
     valid_boundary_idents: HashSet<Ident>,
     /// Track if boundary imports have been added (plugin only adds one import)
@@ -41,26 +41,17 @@ struct TransformVisitor {
 
 impl TransformVisitor {
     pub fn new(config: Config, context: Context, source_map: Option<PluginSourceMapProxy>) -> Self {
-        let mut boundary_contexts = HashMap::new();
+        let mut boundary_contexts = HashSet::new();
 
         // Always add Suspense from "react" as a default boundary
-        boundary_contexts.insert(
-            "suspense".to_string(),
-            Boundary {
-                component: "Suspense".to_string(),
-                from: "react".to_string(),
-            },
-        );
+        boundary_contexts.insert(Boundary {
+            component: "Suspense".to_string(),
+            from: "react".to_string(),
+        });
 
         // Add user-configured boundaries
-        for (boundary_name, boundary_config) in config.boundaries.iter() {
-            boundary_contexts.insert(
-                boundary_name.clone(),
-                Boundary {
-                    component: boundary_config.component.clone(),
-                    from: boundary_config.from.clone(),
-                },
-            );
+        for boundary_config in config.boundaries.iter() {
+            boundary_contexts.insert(boundary_config.clone());
         }
 
         Self {
@@ -121,7 +112,7 @@ impl TransformVisitor {
         let Str { value, .. } = *import_decl.src.clone();
 
         // Check each configured boundary (including the default Suspense) to see if this import matches
-        for boundary_config in self.boundary_contexts.values_mut() {
+        for boundary_config in &self.boundary_contexts {
             if value == boundary_config.from {
                 // This import is from a package that has boundaries
                 for spec in &import_decl.specifiers {
@@ -415,7 +406,7 @@ function App() {
         visit_mut_pass(TransformVisitor::new(
             Config {
                 enabled: None,
-                boundaries: HashMap::new(),
+                boundaries: HashSet::new(),
             },
             Context {
                 env_name: environment,
@@ -428,21 +419,15 @@ function App() {
     fn transform_visitor_with_boundaries(
         environment: Environment,
     ) -> VisitMutPass<TransformVisitor> {
-        let mut boundaries = HashMap::new();
-        boundaries.insert(
-            "errorBoundary".to_string(),
-            Boundary {
-                component: "ErrorBoundary".to_string(),
-                from: "my-package-name".to_string(),
-            },
-        );
-        boundaries.insert(
-            "loadingBoundary".to_string(),
-            Boundary {
-                component: "LoadingBoundary".to_string(),
-                from: "another-package".to_string(),
-            },
-        );
+        let mut boundaries = HashSet::new();
+        boundaries.insert(Boundary {
+            component: "ErrorBoundary".to_string(),
+            from: "my-package-name".to_string(),
+        });
+        boundaries.insert(Boundary {
+            component: "LoadingBoundary".to_string(),
+            from: "another-package".to_string(),
+        });
 
         visit_mut_pass(TransformVisitor::new(
             Config {

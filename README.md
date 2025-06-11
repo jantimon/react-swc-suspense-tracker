@@ -137,19 +137,16 @@ The plugin automatically transforms:
 
 ```javascript
 // Before transformation
-import { Suspense, ErrorBoundary } from "react";
+import { Suspense } from "react";
 <Suspense fallback={<Loading />}>
-  <ErrorBoundary fallback={<ErrorFallback />}>
-    <MyComponent />
-  </ErrorBoundary>
+  <MyComponent />
 </Suspense>
 
 // After transformation
+import { Suspense } from "react";
 import { BoundaryTrackerSWC } from "react-swc-suspense-tracker/context";
 <BoundaryTrackerSWC Component={Suspense} fallback={<Loading />} id="my/file.tsx:123">
-  <BoundaryTrackerSWC Component={ErrorBoundary} fallback={<ErrorFallback />} id="my/file.tsx:124">
-    <MyComponent />
-  </BoundaryTrackerSWC>
+  <MyComponent />
 </BoundaryTrackerSWC>
 ```
 

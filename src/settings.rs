@@ -1,4 +1,15 @@
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
+
+/// Configuration for a boundary component
+#[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct Boundary {
+    /// The component name to replace with
+    pub component: String,
+    /// The package to import the component from
+    pub from: String,
+}
 
 /// Static plugin configuration.
 #[derive(Debug, Serialize, Deserialize)]
@@ -8,6 +19,9 @@ pub struct Config {
     /// Whether the plugin is enabled
     #[serde(default = "default_enabled")]
     pub enabled: Option<bool>,
+    /// Boundary configurations (e.g., 'errorBoundary': { component: 'ErrorBoundary', from: 'my-package' })
+    #[serde(default)]
+    pub boundaries: HashMap<String, Boundary>,
 }
 
 /// Default value for the enabled field (defaults to Some(true) if not specified).

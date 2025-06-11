@@ -1,12 +1,12 @@
-import "react";
-import { SuspenseTrackerSWC } from "react-swc-suspense-tracker/context";
+import { BoundaryTrackerSWC } from "react-swc-suspense-tracker/context";
+import { Suspense } from "react";
 function App() {
     return <div>
-      <SuspenseTrackerSWC fallback={<Loading/>} id="my/file.tsx:1">
+      <BoundaryTrackerSWC fallback={<Loading/>} boundaryId="my/file.tsx:0" boundary={Suspense}>
         <Component1/>
-      </SuspenseTrackerSWC>
-      <SuspenseTrackerSWC fallback={<div>Loading...</div>} id="my/file.tsx:3">
+      </BoundaryTrackerSWC>
+      <BoundaryTrackerSWC fallback={<div>Loading...</div>} boundaryId="my/file.tsx:0" boundary={Suspense}>
         <Component2/>
-      </SuspenseTrackerSWC>
+      </BoundaryTrackerSWC>
     </div>;
 }

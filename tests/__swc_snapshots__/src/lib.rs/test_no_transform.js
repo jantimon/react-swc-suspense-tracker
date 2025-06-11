@@ -1,7 +1,7 @@
-import { useEffect } from "react";
-import { SuspenseTrackerSWC } from "react-swc-suspense-tracker/context";
+import { BoundaryTrackerSWC } from "react-swc-suspense-tracker/context";
+import { useEffect, Suspense } from "react";
 function App() {
-    return <SuspenseTrackerSWC fallback={<Loading/>} id="my/file.tsx:1">
+    return <BoundaryTrackerSWC fallback={<Loading/>} boundaryId="my/file.tsx:0" boundary={Suspense}>
       <MyComponent/>
-    </SuspenseTrackerSWC>;
+    </BoundaryTrackerSWC>;
 }

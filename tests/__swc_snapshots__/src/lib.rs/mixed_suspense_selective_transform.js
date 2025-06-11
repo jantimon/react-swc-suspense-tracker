@@ -1,16 +1,16 @@
-import "react";
-import { SuspenseTrackerSWC } from "react-swc-suspense-tracker/context";
+import { BoundaryTrackerSWC } from "react-swc-suspense-tracker/context";
+import { Suspense as ReactSuspense } from "react";
 // User's own Suspense component
 function Suspense(props) {
     return <div className="my-suspense">{props.children}</div>;
 }
 function App() {
     return <div>
-      <ReactSuspense fallback={<Loading/>}>
+      <BoundaryTrackerSWC fallback={<Loading/>} boundaryId="my/file.tsx:0" boundary={ReactSuspense}>
         <Component1/>
-      </ReactSuspense>
-      <SuspenseTrackerSWC fallback={<div>Should not transform</div>} id="my/file.tsx:4">
+      </BoundaryTrackerSWC>
+      <Suspense fallback={<div>Should not transform</div>}>
         <Component2/>
-      </SuspenseTrackerSWC>
+      </Suspense>
     </div>;
 }

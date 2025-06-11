@@ -1,8 +1,10 @@
 #![allow(clippy::not_unsafe_ptr_arg_deref)]
 
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
+use swc_core::common::{BytePos, SourceMapper};
+use swc_core::plugin::proxies::PluginSourceMapProxy;
 use swc_core::{
-    common::{SyntaxContext, DUMMY_SP},
+    common::DUMMY_SP,
     ecma::{
         ast::*,
         visit::{visit_mut_pass, VisitMut, VisitMutWith},
@@ -13,45 +15,83 @@ use swc_core::{
     },
 };
 
-mod helpers;
 mod settings;
 
-pub use settings::{Config, Context, Environment};
+pub use settings::{Boundary, Config, Context, Environment};
 
-const SUSPENSE_TRACKER_PACKAGE: &str = "react-swc-suspense-tracker/context";
-const SUSPENSE_TRACKER_IMPORT_NAME: &str = "SuspenseTrackerSWC";
+const BOUNDARY_TRACKER_PACKAGE_NAME: &str = "react-swc-suspense-tracker/context";
+const BOUNDARY_TRACKER_IMPORT_NAME: &str = "BoundaryTrackerSWC";
+const BOUNDARY_ID_PROPERTY_NAME: &str = "boundaryId";
+const BOUNDARY_NAME_PROPERTY_NAME: &str = "boundary";
 
 struct TransformVisitor {
     config: Config,
     context: Context,
-    has_suspense_elements: bool,
-    suspense_tracker_imported: bool,
-    /// Set of SyntaxContext IDs for Suspense identifiers imported from React
-    react_suspense_contexts: HashSet<SyntaxContext>,
-    /// Position to insert the SuspenseTracker import (after React import)
-    react_import_position: Option<usize>,
+    /// Maps boundary name -> (boundary_config, set of syntax contexts for that boundary)
+    boundary_contexts: HashMap<String, Boundary>,
+    /// Valid Boundary Idents
+    valid_boundary_idents: HashSet<Ident>,
+    /// Track if boundary imports have been added (plugin only adds one import)
+    boundary_imports_added: bool,
+    /// Track if we have any boundary elements to transform
+    has_boundary_elements: bool,
+    /// Optional source map for line number mapping
+    source_map: Option<PluginSourceMapProxy>,
 }
 
 impl TransformVisitor {
-    pub fn new(config: Config, context: Context) -> Self {
+    pub fn new(config: Config, context: Context, source_map: Option<PluginSourceMapProxy>) -> Self {
+        let mut boundary_contexts = HashMap::new();
+
+        // Always add Suspense from "react" as a default boundary
+        boundary_contexts.insert(
+            "suspense".to_string(),
+            Boundary {
+                component: "Suspense".to_string(),
+                from: "react".to_string(),
+            },
+        );
+
+        // Add user-configured boundaries
+        for (boundary_name, boundary_config) in config.boundaries.iter() {
+            boundary_contexts.insert(
+                boundary_name.clone(),
+                Boundary {
+                    component: boundary_config.component.clone(),
+                    from: boundary_config.from.clone(),
+                },
+            );
+        }
+
         Self {
             config,
             context,
-            has_suspense_elements: false,
-            suspense_tracker_imported: false,
-            react_suspense_contexts: HashSet::new(),
-            react_import_position: None,
+            boundary_contexts,
+            valid_boundary_idents: HashSet::new(),
+            boundary_imports_added: false,
+            has_boundary_elements: false,
+            source_map,
         }
     }
 
-    /// Generates a unique ID for a Suspense element based on file and line
-    fn generate_suspense_id(&self, span_lo: u32) -> String {
-        let line = helpers::extract_line_number(span_lo);
-        helpers::generate_boundary_id(&self.context.filename, line)
+    /// Generates a unique ID for a custom boundary element based on boundary name, file and line
+    fn generate_boundary_id(&self, pos: BytePos) -> String {
+        let filename = self.context.filename.clone();
+        let cleaned = filename
+            .strip_prefix("./")
+            .or_else(|| filename.strip_prefix("/"))
+            .unwrap_or(&filename)
+            .replace('\\', "/");
+
+        let line = self
+            .source_map
+            .as_ref()
+            .map_or(0, |source_map| source_map.lookup_char_pos(pos).line);
+        format!("{}:{}", cleaned, line)
     }
 
-    /// Creates the SuspenseTracker import if needed
-    fn create_suspense_tracker_import(&self) -> ModuleItem {
+    /// Creates the BoundaryTracker import if needed
+    fn create_boundary_tracker_import(&self) -> ModuleItem {
         ModuleItem::ModuleDecl(ModuleDecl::Import(ImportDecl {
             span: DUMMY_SP,
             specifiers: vec![ImportSpecifier::Named(ImportNamedSpecifier {
@@ -59,7 +99,7 @@ impl TransformVisitor {
                 local: Ident {
                     ctxt: Default::default(),
                     span: DUMMY_SP,
-                    sym: SUSPENSE_TRACKER_IMPORT_NAME.into(),
+                    sym: BOUNDARY_TRACKER_IMPORT_NAME.into(),
                     optional: false,
                 },
                 imported: None,
@@ -67,7 +107,7 @@ impl TransformVisitor {
             })],
             src: Box::new(Str {
                 span: DUMMY_SP,
-                value: SUSPENSE_TRACKER_PACKAGE.into(),
+                value: BOUNDARY_TRACKER_PACKAGE_NAME.into(),
                 raw: None,
             }),
             type_only: false,
@@ -76,50 +116,52 @@ impl TransformVisitor {
         }))
     }
 
-    /// Processes React imports: collects Suspense identifier contexts and removes them
-    fn process_react_import(&mut self, import_decl: &mut ImportDecl) -> bool {
+    /// Processes boundary imports: collects boundary identifier contexts
+    fn process_boundary_import(&mut self, import_decl: &mut ImportDecl) {
         let Str { value, .. } = *import_decl.src.clone();
-        if value != "react" {
-            return false;
-        }
 
-        let mut found_suspense = false;
+        // Check each configured boundary (including the default Suspense) to see if this import matches
+        for boundary_config in self.boundary_contexts.values_mut() {
+            if value == boundary_config.from {
+                // This import is from a package that has boundaries
+                for spec in &import_decl.specifiers {
+                    if let ImportSpecifier::Named(named) = spec {
+                        // Get the external/imported name
+                        let external_name = named
+                            .imported
+                            .as_ref()
+                            .map(|imported| match imported {
+                                ModuleExportName::Ident(ident) => &ident.sym,
+                                ModuleExportName::Str(str_lit) => &str_lit.value,
+                            })
+                            .unwrap_or(&named.local.sym);
 
-        // Collect Suspense contexts and remove them from the import
-        import_decl.specifiers.retain(|spec| {
-            if let ImportSpecifier::Named(named) = spec {
-                // Check the external/imported name, fall back to local name if not aliased
-                let external_name = named
-                    .imported
-                    .as_ref()
-                    .map(|imported| match imported {
-                        ModuleExportName::Ident(ident) => &ident.sym,
-                        ModuleExportName::Str(str_lit) => &str_lit.value,
-                    })
-                    .unwrap_or(&named.local.sym);
-
-                if external_name == "Suspense" {
-                    // Store the context of this Suspense identifier
-                    self.react_suspense_contexts.insert(named.local.ctxt);
-                    found_suspense = true;
-                    return false; // Remove from import
+                        if *external_name == boundary_config.component {
+                            self.valid_boundary_idents.insert(named.local.clone());
+                        }
+                    }
                 }
             }
-            true // Keep other imports
-        });
-
-        found_suspense
+        }
     }
 
-    /// Checks if a JSX element uses a React Suspense identifier
-    fn is_react_suspense(&self, jsx_element: &JSXElement) -> bool {
+    /// Checks if a JSX element is a boundary that should be transformed
+    fn get_element_boundary_ident(&self, jsx_element: &JSXElement) -> Option<Ident> {
         if let JSXElementName::Ident(ident) = &jsx_element.opening.name {
-            if ident.sym == "Suspense" {
-                // Check if this identifier's context matches one we imported from React
-                return self.react_suspense_contexts.contains(&ident.ctxt);
+            println!(
+                "Ident {:?} and Contexts {:?}",
+                ident, self.valid_boundary_idents
+            );
+            // Check if this is a valid boundary identifier
+            if self
+                .valid_boundary_idents
+                .iter()
+                .any(|valid_ident| *valid_ident.sym == ident.sym && valid_ident.ctxt == ident.ctxt)
+            {
+                return Some(ident.clone());
             }
         }
-        false
+        None
     }
 }
 
@@ -135,48 +177,44 @@ impl VisitMut for TransformVisitor {
             return;
         }
 
-        // First pass: collect React Suspense imports and find React import position
-        for (index, module_item) in module_items.iter_mut().enumerate() {
+        // First pass: collect boundary imports (including Suspense from React)
+        for module_item in module_items.iter_mut() {
             if let ModuleItem::ModuleDecl(ModuleDecl::Import(import_decl)) = module_item {
-                let Str { value, .. } = *import_decl.src.clone();
-                if value == "react" {
-                    self.react_import_position = Some(index);
-                    self.process_react_import(import_decl);
-                }
+                self.process_boundary_import(import_decl);
             }
         }
 
-        // Second pass: transform JSX elements (only if we found React Suspense imports)
-        if !self.react_suspense_contexts.is_empty() {
-            module_items.visit_mut_children_with(self);
+        // If no valid boundary identifiers were found, skip further processing
+        if self.valid_boundary_idents.is_empty() {
+            return;
         }
 
-        // Third pass: add SuspenseTracker import if needed
-        if self.has_suspense_elements && !self.suspense_tracker_imported {
-            let tracker_import = self.create_suspense_tracker_import();
+        // Replace the boundary elements with BoundaryTrackerSWC
+        module_items.visit_mut_children_with(self);
 
-            // Insert after React import if we found one, otherwise at the beginning
-            let insert_index = self
-                .react_import_position
-                .map(|i| i + 1)
-                .or_else(|| get_first_import_index(module_items))
-                .unwrap_or(0);
+        // Add required import if needed
+        if self.has_boundary_elements {
+            let insert_index = get_first_import_index(module_items).unwrap_or(0);
 
-            module_items.insert(insert_index, tracker_import);
-            self.suspense_tracker_imported = true;
+            if !self.boundary_imports_added {
+                let tracker_import = self.create_boundary_tracker_import();
+                module_items.insert(insert_index, tracker_import);
+                self.boundary_imports_added = true;
+            }
         }
     }
 
     fn visit_mut_jsx_element(&mut self, jsx_element: &mut JSXElement) {
-        // Only transform if this is a React Suspense element
-        if self.is_react_suspense(jsx_element) {
-            self.has_suspense_elements = true;
+        // Check if this is a boundary element (including Suspense)
+        if let Some(boundary_ident) = self.get_element_boundary_ident(jsx_element) {
+            self.has_boundary_elements = true;
 
-            // Change the element name to SuspenseTracker
+            // Transform all boundaries to BoundaryTrackerSWC
+            // Change the element name to BoundaryTrackerSWC
             jsx_element.opening.name = JSXElementName::Ident(Ident {
                 ctxt: Default::default(),
                 span: DUMMY_SP,
-                sym: SUSPENSE_TRACKER_IMPORT_NAME.into(),
+                sym: BOUNDARY_TRACKER_IMPORT_NAME.into(),
                 optional: false,
             });
 
@@ -185,19 +223,19 @@ impl VisitMut for TransformVisitor {
                 closing.name = JSXElementName::Ident(Ident {
                     ctxt: Default::default(),
                     span: DUMMY_SP,
-                    sym: SUSPENSE_TRACKER_IMPORT_NAME.into(),
+                    sym: BOUNDARY_TRACKER_IMPORT_NAME.into(),
                     optional: false,
                 });
             }
 
             // Add the id prop
-            let id_value = self.generate_suspense_id(jsx_element.span.lo.0);
+            let id_value = self.generate_boundary_id(jsx_element.span.lo);
 
             let id_attr = JSXAttrOrSpread::JSXAttr(JSXAttr {
                 span: DUMMY_SP,
                 name: JSXAttrName::Ident(IdentName {
                     span: DUMMY_SP,
-                    sym: "id".into(),
+                    sym: BOUNDARY_ID_PROPERTY_NAME.into(),
                 }),
                 value: Some(JSXAttrValue::Lit(Lit::Str(Str {
                     span: DUMMY_SP,
@@ -206,7 +244,20 @@ impl VisitMut for TransformVisitor {
                 }))),
             });
 
+            let boundary_attr = JSXAttrOrSpread::JSXAttr(JSXAttr {
+                span: DUMMY_SP,
+                name: JSXAttrName::Ident(IdentName {
+                    span: DUMMY_SP,
+                    sym: BOUNDARY_NAME_PROPERTY_NAME.into(),
+                }),
+                value: Some(JSXAttrValue::JSXExprContainer(JSXExprContainer {
+                    span: DUMMY_SP,
+                    expr: JSXExpr::Expr(Box::new(Expr::Ident(boundary_ident))),
+                })),
+            });
+
             jsx_element.opening.attrs.push(id_attr);
+            jsx_element.opening.attrs.push(boundary_attr);
         }
 
         jsx_element.visit_mut_children_with(self);
@@ -254,7 +305,7 @@ pub fn process_transform(program: Program, metadata: TransformPluginProgramMetad
     };
 
     program.apply(visit_mut_pass(
-        &mut (TransformVisitor::new(config, context)),
+        &mut (TransformVisitor::new(config, context, Some(metadata.source_map))),
     ))
 }
 
@@ -335,15 +386,73 @@ function App() {
   );
 }"#;
 
+    const CUSTOM_ERROR_BOUNDARY: &str = r#"import { ErrorBoundary } from "my-package-name";
+function App() {
+  return (
+    <ErrorBoundary fallback={<ErrorFallback />}>
+      <MyComponent />
+    </ErrorBoundary>
+  );
+}"#;
+
+    const MULTIPLE_CUSTOM_BOUNDARIES: &str = r#"import { ErrorBoundary } from "my-package-name";
+import { LoadingBoundary } from "another-package";
+function App() {
+  return (
+    <div>
+      <ErrorBoundary fallback={<ErrorFallback />}>
+        <Component1 />
+      </ErrorBoundary>
+      <LoadingBoundary fallback={<div>Loading...</div>}>
+        <Component2 />
+      </LoadingBoundary>
+    </div>
+  );
+}"#;
+
     fn transform_visitor(environment: Environment) -> VisitMutPass<TransformVisitor> {
         visit_mut_pass(TransformVisitor::new(
             Config {
                 enabled: Some(true),
+                boundaries: HashMap::new(),
             },
             Context {
                 env_name: environment,
                 filename: "my/file.tsx".into(),
             },
+            None,
+        ))
+    }
+
+    fn transform_visitor_with_boundaries(
+        environment: Environment,
+    ) -> VisitMutPass<TransformVisitor> {
+        let mut boundaries = HashMap::new();
+        boundaries.insert(
+            "errorBoundary".to_string(),
+            Boundary {
+                component: "ErrorBoundary".to_string(),
+                from: "my-package-name".to_string(),
+            },
+        );
+        boundaries.insert(
+            "loadingBoundary".to_string(),
+            Boundary {
+                component: "LoadingBoundary".to_string(),
+                from: "another-package".to_string(),
+            },
+        );
+
+        visit_mut_pass(TransformVisitor::new(
+            Config {
+                enabled: Some(true),
+                boundaries,
+            },
+            Context {
+                env_name: environment,
+                filename: "my/file.tsx".into(),
+            },
+            None,
         ))
     }
 
@@ -419,5 +528,21 @@ function App() {
         |_| transform_visitor(Environment::Test),
         test_no_transform,
         BASIC_SUSPENSE
+    );
+
+    test!(
+        module,
+        tsx_syntax(),
+        |_| transform_visitor_with_boundaries(Environment::Development),
+        custom_error_boundary_transform,
+        CUSTOM_ERROR_BOUNDARY
+    );
+
+    test!(
+        module,
+        tsx_syntax(),
+        |_| transform_visitor_with_boundaries(Environment::Development),
+        multiple_custom_boundaries_transform,
+        MULTIPLE_CUSTOM_BOUNDARIES
     );
 }

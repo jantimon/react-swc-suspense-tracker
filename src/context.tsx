@@ -2,8 +2,8 @@ import { Suspense } from "react";
 import { SuspenseContext } from "./internal";
 
 interface BoundaryTrackerProps extends React.ComponentProps<typeof Suspense> {
-  id: string;
-  boundary?: React.ComponentType<any>;
+  boundaryId: string;
+  boundary: React.ComponentType<any>;
 }
 
 /**
@@ -11,12 +11,12 @@ interface BoundaryTrackerProps extends React.ComponentProps<typeof Suspense> {
  * Provides tracking context while maintaining all original boundary functionality.
  */
 export const BoundaryTrackerSWC = ({
-  id,
-  boundary: Boundary = Suspense,
+  boundaryId,
+  boundary: Boundary,
   children,
   ...boundaryProps
 }: BoundaryTrackerProps) => (
-  <SuspenseContext.Provider value={id}>
+  <SuspenseContext.Provider value={boundaryId}>
     <Boundary {...boundaryProps}>{children}</Boundary>
   </SuspenseContext.Provider>
 );

@@ -167,13 +167,14 @@ impl TransformVisitor {
 
 impl VisitMut for TransformVisitor {
     fn visit_mut_module_items(&mut self, module_items: &mut Vec<ModuleItem>) {
-        // Skip transformation if the plugin is disabled
-        // or if the environment is not Development and the config does not explicitly enable it
-        if !self
+        let is_enabled = self
             .config
             .enabled
-            .unwrap_or(self.context.env_name != Environment::Development)
-        {
+            .unwrap_or(self.context.env_name == Environment::Development);
+
+        // Skip transformation if the plugin is disabled
+        // or if the environment is not Development and the config does not explicitly enable it
+        if !is_enabled {
             return;
         }
 
@@ -413,7 +414,7 @@ function App() {
     fn transform_visitor(environment: Environment) -> VisitMutPass<TransformVisitor> {
         visit_mut_pass(TransformVisitor::new(
             Config {
-                enabled: Some(true),
+                enabled: None,
                 boundaries: HashMap::new(),
             },
             Context {
@@ -445,7 +446,7 @@ function App() {
 
         visit_mut_pass(TransformVisitor::new(
             Config {
-                enabled: Some(true),
+                enabled: None,
                 boundaries,
             },
             Context {

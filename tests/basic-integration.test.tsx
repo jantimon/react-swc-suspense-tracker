@@ -3,12 +3,12 @@ import { describe, it, expect } from "vitest";
 import { renderToString, renderToPipeableStream } from "react-dom/server";
 import {
   useSuspenseOwner as _useSuspenseOwner,
-  wrapHook as _wrapHook,
+  wrapHook as _wrapSuspendableHook,
 } from "react-swc-suspense-tracker";
 import type * as Types from "../src/index";
 
 const useSuspenseOwner: typeof Types.useSuspenseOwner = _useSuspenseOwner;
-const wrapHook = _wrapHook as typeof Types.wrapHook;
+const wrapHook = _wrapSuspendableHook as typeof Types.wrapSuspendableHook;
 
 describe("useSuspenseOwner()", () => {
   // Component that uses useSuspenseOwner to get boundary ID

@@ -3,20 +3,20 @@
 [![npm version](https://img.shields.io/npm/v/react-swc-suspense-tracker.svg)](https://www.npmjs.com/package/react-swc-suspense-tracker)
 [![CI](https://github.com/jantimon/react-swc-suspense-tracker/actions/workflows/test.yml/badge.svg)](https://github.com/jantimon/react-swc-suspense-tracker/actions/workflows/test.yml)
 
-A development tool that helps you track which React Suspense boundary catches thrown promises, making it easier to debug your React applications that use Suspense for data fetching.
+A development tool that helps you track which React Suspense and Error boundaries handle thrown promises and errors, making it easier to debug your React applications that use Suspense for data fetching and Error boundaries for error handling.
 
 ![Screenshot of React Dev Tools with Suspense Boundary Information](https://github.com/user-attachments/assets/8918f233-710b-44ab-b4a4-2a2b3c425855)
 
 ## The Problem
 
-React Suspense uses thrown Promises to pause rendering until data is ready, but there's no public API to identify which Suspense boundary catches a suspension.
-This makes debugging difficult when you have multiple nested Suspense boundaries and need to understand the flow of suspensions in your app.
+React Suspense uses thrown Promises to pause rendering until data is ready, and Error boundaries catch thrown errors to handle failures gracefully. However, there's no public API to identify which boundary catches a suspension or error.
+This makes debugging difficult when you have multiple nested boundaries and need to understand the flow of suspensions and errors in your app.
 
 ## The Solution
 
 This package provides:
-- **SWC Plugin**: Automatically replaces `Suspense` imports to use a trackable version
-- **Development Hooks**: Utilities to detect missing boundaries and debug suspension flow
+- **SWC Plugin**: Automatically replaces `Suspense` and `ErrorBoundary` imports to use trackable versions
+- **Development Hooks**: Utilities to detect missing boundaries and debug suspension/error flow
 
 ## Installation
 
@@ -35,7 +35,13 @@ module.exports = {
   experimental: {
     swcPlugins: [
       [
-        "react-swc-suspense-tracker/swc"
+        "react-swc-suspense-tracker/swc",
+        {
+          // Optional: track custom boundary components
+          boundaries: [
+            { component: "ErrorBoundary", from: "react-error-boundary" }
+          ]
+        }
       ],
     ],
   },
@@ -49,6 +55,7 @@ module.exports = {
 | Option | Type | Default | Description |
 |--------|------|---------|-------------|
 | `enabled` | `boolean` | `true` on development<br> `false` in production | Enable/disable the plugin transformation |
+| `boundaries` | `Array<{component: string, from: string}>` | `[]` | Additional boundary components to track (e.g., custom Error boundaries) |
 
 #### Using with SWC directly
 
@@ -60,7 +67,12 @@ Add to your `.swcrc`:
     "experimental": {
       "plugins": [
         [
-          "react-swc-suspense-tracker/swc"
+          "react-swc-suspense-tracker/swc",
+          {
+            "boundaries": [
+              { "component": "ErrorBoundary", "from": "react-error-boundary" }
+            ]
+          }
         ]
       ]
     }
@@ -72,22 +84,22 @@ Add to your `.swcrc`:
 
 The following example shows how you can debug specific hooks that might suspend.
 
-**Note:** By default `suspenseInfo` will allways be `null` in production mode.
+**Note:** By default `suspenseInfo` will always be `null` in production mode.
 To change that you have to set the `enabled` option to `true` in the SWC plugin configuration.
 
 ```tsx
 import { useQuery } from 'react-query';
-import { wrapHook } from 'suspense-tracker';
+import { wrapSuspendableHook } from 'react-swc-suspense-tracker';
 
 const useQueryWithDebug = process.env.NODE_ENV === 'production'
  ? useQuery
- : wrapHook(
+ : wrapSuspendableHook(
   useQuery,
-  (suspenseInfo, queryKey) => {
-    if (!suspenseInfo) {
+  (suspenseBoundaries, queryKey) => {
+    if (suspenseBoundaries.length === 0) {
      console.warn(`Suspense triggered by ${queryKey} but no Suspense boundary found`);
     } else {
-     console.info(`Suspense triggered by ${queryKey} for boundary: ${suspenseInfo}`);
+     console.info(`Suspense triggered by ${queryKey} for boundary: ${suspenseBoundaries[0]}`);
     }
   }
 );
@@ -125,16 +137,20 @@ The plugin automatically transforms:
 
 ```javascript
 // Before transformation
-import { Suspense } from "react";
+import { Suspense, ErrorBoundary } from "react";
 <Suspense fallback={<Loading />}>
-  <MyComponent />
+  <ErrorBoundary fallback={<ErrorFallback />}>
+    <MyComponent />
+  </ErrorBoundary>
 </Suspense>
 
 // After transformation
-import { SuspenseTracker } from "react-swc-suspense-tracker/internal";
-<SuspenseTracker fallback={<Loading />} id="my/file.tsx:123">
-  <MyComponent />
-</SuspenseTracker>
+import { BoundaryTrackerSWC } from "react-swc-suspense-tracker/context";
+<BoundaryTrackerSWC Component={Suspense} fallback={<Loading />} id="my/file.tsx:123">
+  <BoundaryTrackerSWC Component={ErrorBoundary} fallback={<ErrorFallback />} id="my/file.tsx:124">
+    <MyComponent />
+  </BoundaryTrackerSWC>
+</BoundaryTrackerSWC>
 ```
 
 ### Custom logger
@@ -166,6 +182,12 @@ Returns the ID of the nearest Suspense boundary above this component. The ID for
 
 Returns `null` if no Suspense boundary is found.
 
+#### `useBoundaryStack(): Array<[string, ComponentType]>`
+
+Returns information about all boundary components above this component as an array of `[boundaryId, BoundaryComponent]` tuples, ordered from outermost to innermost boundary.
+
+Returns empty array if no boundaries are found.
+
 #### `useThrowIfSuspenseMissing(skip?: boolean): void`
 
 Throws an error in development if this component might suspend but has no Suspense boundary above it - NOOP in production builds
@@ -175,13 +197,13 @@ Throws an error in development if this component might suspend but has no Suspen
 
 **Throws:** Error with message explaining the missing Suspense boundary.
 
-#### `wrapHook<T>(hook: T, onSuspense: (id: string | null, ...args: Parameters<T>) => void): T`
+#### `wrapSuspendableHook<T>(hook: T, onSuspense: (suspenseBoundaries: string[], ...args: Parameters<T>) => void): T`
 
 Wraps a hook to catch Suspense errors and call the provided `onSuspense` function with the current Suspense boundary information.
 
 **Parameters:**
 - `hook`: The hook function to wrap
-- `onSuspense`: Function called when the hook suspends, receives the boundary ID
+- `onSuspense`: Function called when the hook suspends, receives array of Suspense boundary IDs
 
 **Returns:** A wrapped version of the hook with the same signature.
 

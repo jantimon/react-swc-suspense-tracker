@@ -60,9 +60,9 @@ export const useThrowIfSuspenseMissing =
  * Usage:
  * ```tsx
  * import { useQuery } from 'react-query';
- * import { wrapHook } from 'suspense-tracker';
+ * import { wrapSuspendableHook } from 'suspense-tracker';
  *
- * const useQueryWithDebug = wrapHook(
+ * const useQueryWithDebug = wrapSuspendableHook(
  *   useQuery,
  *   (suspenseBoundaryStack, queryKey) => {
  *     if (suspenseBoundaryStack.length === 0) {
@@ -79,7 +79,7 @@ export const useThrowIfSuspenseMissing =
  * }
  * ```
  */
-export const wrapHook = <T extends (...args: any) => any>(
+export const wrapSuspendableHook = <T extends (...args: any) => any>(
   hook: T,
   /** Called if the hook suspends */
   onSuspense: (...args: [string[], ...NoInfer<Parameters<T>>]) => void,

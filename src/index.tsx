@@ -20,12 +20,14 @@ export const useBoundaryStack = (): BoundaryInfo[] => {
   if (process.env.NODE_ENV === "development") {
     useDebugValue(boundaryStack, (stack) =>
       stack.length > 0
-        ? `Boundaries: ${stack.map(([, Component]) => {
-          if (Component === Suspense) {
-            return "Suspense";
-          }
-          return Component.name || "Anonymous";
-        }).join(" → ")}`
+        ? `Boundaries: ${stack
+            .map(([, Component]) => {
+              if (Component === Suspense) {
+                return "Suspense";
+              }
+              return Component.name || "Anonymous";
+            })
+            .join(" → ")}`
         : "No boundaries",
     );
   }

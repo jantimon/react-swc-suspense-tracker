@@ -105,7 +105,7 @@ export const useThrowIfSuspenseMissing =
 export const wrapSuspendableHook = <T extends (...args: any) => any>(
   hook: T,
   /** Called if the hook suspends */
-  onSuspense: (...args: [string[], ...NoInfer<Parameters<T>>]) => void,
+  onSuspense: (...args: NoInfer<[string[], ...Parameters<T>]>) => void,
   onlySuspense = true,
 ): T => {
   const wrappedHook = function (...args: any[]) {
@@ -126,8 +126,8 @@ export const wrapSuspendableHook = <T extends (...args: any) => any>(
             error.message.startsWith("Suspense Exception")))
       ) {
         onSuspense(
-          suspenseBoundaries,
           // @ts-expect-error - Spread hook arguments into onSuspense
+          suspenseBoundaries,
           ...args,
         );
       }

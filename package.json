@@ -1,6 +1,6 @@
 {
   "name": "react-swc-suspense-tracker",
-  "version": "0.2.2",
+  "version": "0.3.0",
   "description": "A development tool that tracks which React Suspense boundary catches thrown promises for easier debugging",
   "main": "./dist/index.mjs",
   "types": "./dist/index.d.ts",

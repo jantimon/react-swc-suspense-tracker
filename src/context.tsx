@@ -13,7 +13,6 @@ interface BoundaryTrackerProps extends React.ComponentProps<typeof Suspense> {
 export const BoundaryTrackerSWC = ({
   boundaryId,
   boundary: Boundary,
-  children,
   ...boundaryProps
 }: BoundaryTrackerProps) => {
   const parentContext = use(SuspenseContext);
@@ -23,7 +22,7 @@ export const BoundaryTrackerSWC = ({
   );
   return (
     <SuspenseContext.Provider value={boundaries}>
-      <Boundary {...boundaryProps}>{children}</Boundary>
+      <Boundary {...boundaryProps} />
     </SuspenseContext.Provider>
   );
 };

@@ -1,4 +1,4 @@
-import { Suspense, useContext } from "react";
+import { Suspense, useContext, useDebugValue } from "react";
 import { SuspenseContext, type BoundaryInfo } from "./internal";
 
 /**
@@ -9,9 +9,24 @@ import { SuspenseContext, type BoundaryInfo } from "./internal";
  * If not set manually, boundaryId format is file.tsx:line
  *
  * Returns empty array if no boundaries are found.
+ *
+ * @dev In development mode, this hook provides React DevTools debug information
+ * showing the boundary hierarchy as "Component Names → Stack IDs" for easier debugging.
+ * This debug output is automatically stripped in production builds.
  */
-export const useBoundaryStack = (): BoundaryInfo[] =>
-  useContext(SuspenseContext);
+export const useBoundaryStack = (): BoundaryInfo[] => {
+  const boundaryStack = useContext(SuspenseContext);
+
+  if (process.env.NODE_ENV === "development") {
+    useDebugValue(boundaryStack, (stack) =>
+      stack.length > 0
+        ? `Boundaries: ${stack.map(([, Component]) => Component.name || "Anonymous").join(" → ")}\nStack:\n  at ${stack.map(([id]) => id).join("\n  at ")}`
+        : "No boundaries",
+    );
+  }
+
+  return boundaryStack;
+};
 
 /**
  * Returns information about the nearest boundary above this component

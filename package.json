@@ -26,7 +26,7 @@
     "test:vitest": "pnpm --filter react-swc-suspense-tracker-tests test",
     "build": "npm run prettier && npm run build:js && npm run build:swc",
     "build:swc": "cargo build --release --target wasm32-wasip1 && ncp target/wasm32-wasip1/release/react_swc_suspense_tracker.wasm react_swc_suspense_tracker.wasm",
-    "build:js": "tsdown src/index.tsx src/context.tsx --format esm --external '/react/' --clean --dts",
+    "build:js": "tsdown src/index.tsx src/context.tsx --format esm --external '/^react/' --clean --dts",
     "prettier": "prettier --write \"{src,tests}/**/*.{ts,tsx}\"",
     "prepublishOnly": "npm run test && npm run build"
   },

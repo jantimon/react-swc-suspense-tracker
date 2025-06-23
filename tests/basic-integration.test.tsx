@@ -1,8 +1,10 @@
 import React, { Suspense } from "react";
 import { describe, it, expect } from "vitest";
 import { renderToString, renderToPipeableStream } from "react-dom/server";
+import { ErrorBoundary } from "react-error-boundary";
 import {
   useSuspenseOwner as _useSuspenseOwner,
+  useBoundaryStack as _useBoundaryStack,
   wrapSuspendableHook as _wrapSuspendableHook,
 } from "react-swc-suspense-tracker";
 import type * as Types from "../src/index";
@@ -96,5 +98,61 @@ describe("wrapHook", () => {
     // Verify callback was called with correct parameters
     expect(capturedBoundaries.length).toBeGreaterThan(0);
     expect(capturedBoundaries[0]).toContain("basic-integration.test.tsx");
+  });
+});
+
+describe("ErrorBoundary integration", () => {
+  // Component that uses useBoundaryStack to get boundary information
+  function TestComponentWithBoundaries() {
+    const boundaryStack = _useBoundaryStack();
+    return (
+      <div data-testid="boundary-stack">
+        {boundaryStack.map(([id, Component], index) => (
+          <div key={index} data-testid={`boundary-${index}`}>
+            {id}:{Component.name || "Anonymous"}
+          </div>
+        ))}
+      </div>
+    );
+  }
+
+  it("should transform ErrorBoundary and track it in boundary stack", () => {
+    const element = (
+      <ErrorBoundary fallback={<div>Error occurred</div>}>
+        <TestComponentWithBoundaries />
+      </ErrorBoundary>
+    );
+
+    const html = renderToString(element);
+
+    // Verify the component rendered
+    expect(html).toContain('data-testid="boundary-stack"');
+
+    // Check if ErrorBoundary was transformed and tracked
+    expect(html).toContain("basic-integration.test.tsx:");
+    expect(html).toMatch(/basic-integration\.test\.tsx:\d+/);
+  });
+
+  it("should track both Suspense and ErrorBoundary when nested", () => {
+    const element = (
+      <Suspense fallback={<div>Loading...</div>}>
+        <ErrorBoundary fallback={<div>Error occurred</div>}>
+          <TestComponentWithBoundaries />
+        </ErrorBoundary>
+      </Suspense>
+    );
+
+    const html = renderToString(element);
+
+    // Verify the component rendered
+    expect(html).toContain('data-testid="boundary-stack"');
+
+    // Should have both boundaries tracked
+    expect(html).toContain('data-testid="boundary-0"');
+    expect(html).toContain('data-testid="boundary-1"');
+
+    // Both should have correct filename and line numbers
+    expect(html).toContain("basic-integration.test.tsx:");
+    expect(html).toMatch(/basic-integration\.test\.tsx:\d+/);
   });
 });

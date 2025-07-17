@@ -78,7 +78,7 @@ impl TransformVisitor {
             .source_map
             .as_ref()
             .map_or(0, |source_map| source_map.lookup_char_pos(pos).line);
-        format!("{}:{}", cleaned, line)
+        format!("{cleaned}:{line}")
     }
 
     /// Creates the BoundaryTracker import if needed

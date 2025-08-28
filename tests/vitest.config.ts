@@ -19,6 +19,9 @@ export default defineConfig({
               path.resolve("../react_swc_suspense_tracker.wasm"),
               {
                 enabled: true,
+                boundaries: [
+                  { component: "ErrorBoundary", from: "react-error-boundary" },
+                ],
               },
             ],
           ],

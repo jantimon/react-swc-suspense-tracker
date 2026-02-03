@@ -113,21 +113,28 @@ impl TransformVisitor {
 
         // Check each configured boundary (including the default Suspense) to see if this import matches
         for boundary_config in &self.boundary_contexts {
-            if value == boundary_config.from {
+            if value.as_str() == Some(boundary_config.from.as_str()) {
                 // This import is from a package that has boundaries
                 for spec in &import_decl.specifiers {
                     if let ImportSpecifier::Named(named) = spec {
-                        // Get the external/imported name
-                        let external_name = named
+                        // Check if the imported name matches the boundary component
+                        let is_match = named
                             .imported
                             .as_ref()
                             .map(|imported| match imported {
-                                ModuleExportName::Ident(ident) => &ident.sym,
-                                ModuleExportName::Str(str_lit) => &str_lit.value,
+                                ModuleExportName::Ident(ident) => {
+                                    *ident.sym == *boundary_config.component
+                                }
+                                ModuleExportName::Str(str_lit) => {
+                                    str_lit.value.as_str()
+                                        == Some(boundary_config.component.as_str())
+                                }
+                                #[cfg(swc_ast_unknown)]
+                                _ => false,
                             })
-                            .unwrap_or(&named.local.sym);
+                            .unwrap_or(*named.local.sym == *boundary_config.component);
 
-                        if *external_name == boundary_config.component {
+                        if is_match {
                             self.valid_boundary_idents.insert(named.local.clone());
                         }
                     }
@@ -225,11 +232,11 @@ impl VisitMut for TransformVisitor {
                     span: DUMMY_SP,
                     sym: BOUNDARY_ID_PROPERTY_NAME.into(),
                 }),
-                value: Some(JSXAttrValue::Lit(Lit::Str(Str {
+                value: Some(JSXAttrValue::Str(Str {
                     span: DUMMY_SP,
                     value: id_value.into(),
                     raw: None,
-                }))),
+                })),
             });
 
             let boundary_attr = JSXAttrOrSpread::JSXAttr(JSXAttr {

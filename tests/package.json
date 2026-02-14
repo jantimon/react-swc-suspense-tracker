@@ -13,5 +13,8 @@
     "unplugin-swc": "^1.5.4",
     "vite-tsconfig-paths": "^5.1.4",
     "vitest": "^3.2.2"
+  },
+  "dependencies": {
+    "react-error-boundary": "^6.0.0"
   }
 }

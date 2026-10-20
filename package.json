@@ -24,7 +24,7 @@
     "test": "npm run test:js && npm run test:swc",
     "test:swc": "cargo test",
     "test:js": "npm run test:vitest && tsc --noEmit && prettier --check \"{src,tests}/**/*.{ts,tsx}\"",
-    "test:vitest": "pnpm --filter react-swc-suspense-tracker-tests test",
+    "test:vitest": "cd tests && vitest run",
     "build": "npm run prettier && npm run build:js && npm run build:swc",
     "build:swc": "RUSTFLAGS=\"--cfg swc_ast_unknown\" cargo build --release --target wasm32-wasip1 && ncp target/wasm32-wasip1/release/react_swc_suspense_tracker.wasm react_swc_suspense_tracker.wasm",
     "build:js": "tsdown src/index.tsx src/context.tsx --format esm --external '/^react/' --clean --dts",
@@ -49,21 +49,24 @@
   "devDependencies": {
     "@changesets/cli": "^2.31.1",
     "@swc/core": "1.16.18",
+    "@testing-library/react": "^16.3.0",
     "@types/node": "^22.15.30",
     "@types/react": "^19.2.2",
     "@types/react-dom": "^19.2.2",
+    "@vitest/ui": "^3.2.2",
     "ncp": "2.0.0",
     "prettier": "^3.5.3",
     "react": "^19.2.0",
+    "react-dom": "^19.2.0",
     "tsdown": "^0.12.7",
-    "typescript": "^5.8.3"
+    "typescript": "^5.8.3",
+    "unplugin-swc": "^1.5.4",
+    "vite-tsconfig-paths": "^5.1.4",
+    "vitest": "^3.2.2"
   },
   "engines": {
     "node": ">=20.0.0",
     "pnpm": ">=10.0.0"
   },
-  "workspaces": [
-    "tests"
-  ],
   "packageManager": "pnpm@10.33.2"
 }

@@ -1,7 +1,3 @@
-packages:
-  - .
-  - tests
-
 # Read by pnpm 10
 onlyBuiltDependencies:
   - esbuild

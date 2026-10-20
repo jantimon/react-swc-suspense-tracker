@@ -1,0 +1,52 @@
+name: Release
+
+on:
+  push:
+    branches: [main]
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: write # changesets pushes the "Version Packages" PR and tags
+      pull-requests: write # changesets opens/updates the "Version Packages" PR
+      id-token: write # OIDC: trusted publishing to npm with provenance, no stored token
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+
+      # `prepublishOnly` runs cargo test and builds the wasm plugin
+      - uses: dtolnay/rust-toolchain@stable
+      - run: rustup target add wasm32-wasip1
+      - uses: Swatinem/rust-cache@v2
+
+      - uses: pnpm/action-setup@0e279bb959325dab635dd2c09392533439d90093 # v6.0.8
+
+      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+        with:
+          node-version: 24
+          cache: pnpm
+          registry-url: https://registry.npmjs.org
+
+      - run: pnpm install --frozen-lockfile
+
+      # Opens/updates the "Version Packages" PR from pending changesets, and on
+      # merge runs `pnpm run release` (`changeset publish`). `changeset publish`
+      # invokes `pnpm publish`, which performs the OIDC token exchange itself
+      # (pnpm >= 10.12), so there is no NODE_AUTH_TOKEN / NPM_TOKEN here: the
+      # trusted publisher is configured on npmjs.com against this repo.
+      - uses: changesets/action@a45c4d594aa4e2c509dc14a9f2b3b67ba3780d0d # v1.9.0
+        with:
+          version: pnpm run version
+          publish: pnpm run release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

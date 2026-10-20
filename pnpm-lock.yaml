@@ -14,6 +14,9 @@ importers:
       '@swc/core':
         specifier: 1.16.18
         version: 1.16.18
+      '@testing-library/react':
+        specifier: ^16.3.0
+        version: 16.3.0(@testing-library/dom@10.4.0)(@types/react-dom@19.2.2(@types/react@19.2.2))(@types/react@19.2.2)(react-dom@19.2.0(react@19.2.0))(react@19.2.0)
       '@types/node':
         specifier: ^22.15.30
         version: 22.15.31
@@ -23,6 +26,9 @@ importers:
       '@types/react-dom':
         specifier: ^19.2.2
         version: 19.2.2(@types/react@19.2.2)
+      '@vitest/ui':
+        specifier: ^3.2.2
+        version: 3.2.3(vitest@3.2.3)
       ncp:
         specifier: 2.0.0
         version: 2.0.0
@@ -32,27 +38,15 @@ importers:
       react:
         specifier: ^19.2.0
         version: 19.2.0
+      react-dom:
+        specifier: ^19.2.0
+        version: 19.2.0(react@19.2.0)
       tsdown:
         specifier: ^0.12.7
         version: 0.12.7(typescript@5.8.3)
       typescript:
         specifier: ^5.8.3
         version: 5.8.3
-
-  tests:
-    devDependencies:
-      '@testing-library/react':
-        specifier: ^16.3.0
-        version: 16.3.0(@testing-library/dom@10.4.0)(@types/react-dom@19.2.2(@types/react@19.2.2))(@types/react@19.2.2)(react-dom@19.2.0(react@19.2.0))(react@19.2.0)
-      '@vitest/ui':
-        specifier: ^3.2.2
-        version: 3.2.3(vitest@3.2.3)
-      react:
-        specifier: ^19.2.0
-        version: 19.2.0
-      react-dom:
-        specifier: ^19.2.0
-        version: 19.2.0(react@19.2.0)
       unplugin-swc:
         specifier: ^1.5.4
         version: 1.5.4(@swc/core@1.16.18)(rollup@4.42.0)
@@ -1336,6 +1330,7 @@ packages:
   tsconfck@3.1.6:
     resolution: {integrity: sha512-ks6Vjr/jEw0P1gmOVwutM3B7fWxoWBL2KRDb1JfqGVawBmO5UsvmWOQFGHBPl5yxYz4eERr19E6L7NMv+Fej4w==}
     engines: {node: ^18 || >=20}
+    deprecated: unmaintained
     hasBin: true
     peerDependencies:
       typescript: ^5.0.0

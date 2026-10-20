@@ -2,5 +2,11 @@ packages:
   - .
   - tests
 
+# Read by pnpm 10
 onlyBuiltDependencies:
   - esbuild
+
+# Read by pnpm 12, which ignores onlyBuiltDependencies
+allowBuilds:
+  '@swc/core': false
+  esbuild: true
